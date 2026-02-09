@@ -64,6 +64,7 @@ rule all:
             amplicons=amplicons,
         ),
         os.path.join("results", RUN, "00_QC", "report_seqkit_amplicons_demuxed.txt"),
+        os.path.join("results", RUN, "05_CLR", "merged_clr.tsv"),
 
 
 rule report_seqkit_raw:
@@ -406,7 +407,7 @@ rule run_MAUIcount:
         amplicon_dir=lambda wildcards: os.path.join(
             "results", RUN, "03_amplicons", wildcards.amplicons
         ),
-        amplicon_config="resources/amplicon_config.yaml",
+        amplicon_config="resources/amplicon_config_production.yaml",
     log:
         os.path.join("results", RUN, "04_MAUIcount", "{amplicons}", "MAUIcount.{amplicons}.log"),
     benchmark:
@@ -439,3 +440,41 @@ rule run_MAUIcount:
             --output-types 4 \
             2>&1 | tee {log}
         """
+
+
+rule merge_clr_transform:
+    input:
+        summaries=collect(
+            os.path.join(
+                "results", RUN, "04_MAUIcount", "{amplicons}",
+                "MAUIcount_output", "summary.txt",
+            ),
+            amplicons=amplicons,
+        ),
+    output:
+        clr=os.path.join("results", RUN, "05_CLR", "merged_clr.tsv"),
+        counts=os.path.join("results", RUN, "05_CLR", "merged_counts.tsv"),
+        proportions=os.path.join("results", RUN, "05_CLR", "merged_proportions.tsv"),
+        replaced=os.path.join("results", RUN, "05_CLR", "merged_proportions_zero_replaced.tsv"),
+        summary=os.path.join("results", RUN, "05_CLR", "clr_summary.txt"),
+    params:
+        input_dir=os.path.join("results", RUN, "04_MAUIcount"),
+        output_dir=os.path.join("results", RUN, "05_CLR"),
+        genes=" ".join(amplicons),
+    log:
+        os.path.join("results", RUN, "logs", "merge_clr_transform.log"),
+    benchmark:
+        os.path.join("results", RUN, "benchmarks", "merge_clr_transform.txt")
+    conda:
+        "envs/mauiseq.yaml"
+    threads: 1
+    resources:
+        mem_gb=4,
+        time=10,
+        partition="compute,hugemem,vgpu",
+    shell:
+        "python workflow/scripts/merge_clr_transform.py "
+        "--input-dir {params.input_dir} "
+        "--output-dir {params.output_dir} "
+        "--genes {params.genes} "
+        "2>&1 | tee {log} "

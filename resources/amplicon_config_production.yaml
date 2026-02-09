@@ -23,7 +23,7 @@ genes:
     r_primer_len: 18
     total_len: 308
 
-  #For viciae nodD (see doi.org/10.1111/nph.16392)
+  #For viciae nodD (see doi.org/10.1111/nph.16392) 
   viciae_nodD:
     UMI_len: 13
     f_primer_len: 23
