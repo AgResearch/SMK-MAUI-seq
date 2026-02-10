@@ -65,6 +65,10 @@ rule all:
         ),
         os.path.join("results", RUN, "00_QC", "report_seqkit_amplicons_demuxed.txt"),
         os.path.join("results", RUN, "05_CLR", "merged_clr.tsv"),
+        collect(
+            os.path.join("results", RUN, "06_sample_fasta", "{amplicons}_by_sample.fasta"),
+            amplicons=amplicons,
+        ),
 
 
 rule report_seqkit_raw:
@@ -474,6 +478,43 @@ rule merge_clr_transform:
         partition="compute,hugemem,vgpu",
     shell:
         "python workflow/scripts/merge_clr_transform.py "
+        "--input-dir {params.input_dir} "
+        "--output-dir {params.output_dir} "
+        "--genes {params.genes} "
+        "2>&1 | tee {log} "
+
+
+rule compose_sample_fasta:
+    input:
+        summaries=collect(
+            os.path.join(
+                "results", RUN, "04_MAUIcount", "{amplicons}",
+                "MAUIcount_output", "summary.txt",
+            ),
+            amplicons=amplicons,
+        ),
+    output:
+        fastas=collect(
+            os.path.join("results", RUN, "06_sample_fasta", "{amplicons}_by_sample.fasta"),
+            amplicons=amplicons,
+        ),
+    params:
+        input_dir=os.path.join("results", RUN, "04_MAUIcount"),
+        output_dir=os.path.join("results", RUN, "06_sample_fasta"),
+        genes=" ".join(amplicons),
+    log:
+        os.path.join("results", RUN, "logs", "compose_sample_fasta.log"),
+    benchmark:
+        os.path.join("results", RUN, "benchmarks", "compose_sample_fasta.txt")
+    conda:
+        "envs/mauiseq.yaml"
+    threads: 1
+    resources:
+        mem_gb=4,
+        time=10,
+        partition="compute,hugemem,vgpu",
+    shell:
+        "python workflow/scripts/compose_sample_fasta.py "
         "--input-dir {params.input_dir} "
         "--output-dir {params.output_dir} "
         "--genes {params.genes} "

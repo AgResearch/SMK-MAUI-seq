@@ -111,6 +111,7 @@ The workflow produces the following output structure under `results/<RUN>/`:
 | `03_amplicons/` | `gather_gene_amplicons` | Per-gene FASTQ files (recA, rpoB, nodA, nodD) |
 | `04_MAUIcount/` | `run_MAUIcount` | MAUIcount UMI-deduplicated count tables per gene |
 | `05_CLR/` | `merge_clr_transform` | Merged compositions and CLR-transformed output |
+| `06_sample_fasta/` | `compose_sample_fasta` | Per-gene FASTA files with one entry per sample per accepted sequence type |
 
 Update B.J. Perry February 2026
 
@@ -162,6 +163,64 @@ usage: merge_clr_transform.py [-h] --input-dir INPUT_DIR --output-dir OUTPUT_DIR
 ```
 
 This step is integrated into the Snakemake workflow as rule `merge_clr_transform` and produces outputs in `results/<RUN>/05_CLR/`. It requires `--output-types 4` to be set in the `run_MAUIcount` rule so that `accepted_by_sample_sequences.tab` is generated.
+
+Update B.J. Perry February 2026
+
+### compose_sample_fasta.py — Per-Sample FASTA Composition
+
+This script produces per-gene FASTA files where each entry represents one accepted sequence type observed in one sample. This is useful for downstream phylogenetic or alignment-based analyses that require nucleotide sequences annotated with sample provenance.
+
+#### Processing Steps
+
+1. **Read accepted sequences** — Loads `accepted_sequences.fas` from each gene's `MAUIcount_output/` directory. FASTA headers of the form `>seq_N_totalcount_seconds` are parsed to extract the sequence identifier (`seq_N`).
+
+2. **Read per-sample count table** — Loads `accepted_by_sample_sequences.tab` (produced when MAUIcount runs with `--output-types 4`). Metadata rows (`total`, `seconds`) are dropped.
+
+3. **Compose FASTA entries** — For each sample and each sequence type with count ≥ `--min-count` (default 1), an entry is written with the nucleotide sequence and a structured header.
+
+#### FASTA Header Format
+
+```
+>gene=GENE;seq=seq_N;sample=SAMPLE;count=COUNT;proportion=PROPORTION
+```
+
+Fields are semicolon-delimited key=value pairs:
+
+| Field | Description |
+|---|---|
+| `gene` | Gene amplicon name (recA, rpoB, nodA, nodD) |
+| `seq` | Sequence type identifier (e.g. `seq_1`) |
+| `sample` | Sample name from the count table |
+| `count` | Raw UMI-corrected count of this seq type in this sample |
+| `proportion` | Within-sample proportion (count / sample total, 6 decimal places) |
+
+#### Outputs
+
+One FASTA file per gene written to `--output-dir`:
+
+- `recA_by_sample.fasta`
+- `rpoB_by_sample.fasta`
+- `nodA_by_sample.fasta`
+- `nodD_by_sample.fasta`
+
+#### CLI Usage
+
+```
+usage: compose_sample_fasta.py [-h] --input-dir INPUT_DIR --output-dir OUTPUT_DIR
+                               [--genes GENES [GENES ...]]
+                               [--count-table COUNT_TABLE]
+                               [--fasta-file FASTA_FILE]
+                               [--min-count MIN_COUNT]
+
+  --input-dir     Path to 04_MAUIcount directory (contains gene subdirs)
+  --output-dir    Where to write the per-gene FASTA files
+  --genes         Gene amplicons to process (default: recA rpoB nodA nodD)
+  --count-table   Count table filename inside MAUIcount_output/ (default: accepted_by_sample_sequences.tab)
+  --fasta-file    FASTA filename inside MAUIcount_output/ (default: accepted_sequences.fas)
+  --min-count     Minimum count to include a sequence for a sample (default: 1)
+```
+
+This step is integrated into the Snakemake workflow as rule `compose_sample_fasta` and produces outputs in `results/<RUN>/06_sample_fasta/`. It requires `--output-types 4` to be set in the `run_MAUIcount` rule so that `accepted_by_sample_sequences.tab` is generated.
 
 Update B.J. Perry February 2026
 
